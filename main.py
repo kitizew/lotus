@@ -6,11 +6,19 @@ from google_auth_oauthlib.flow import InstalledAppFlow
 from googleapiclient.discovery import build
 import json;
 from privatData import *
+from datetime import datetime, timedelta
 
 SCOPES = [
     'https://www.googleapis.com/auth/spreadsheets.readonly',
     'https://www.googleapis.com/auth/calendar'
           ]
+
+role_map = {
+    "TL oGT Sales": "V",
+    "TL B2B MKT": "C",
+    "TL  Leadgen&CX": "Y"
+}
+
 
 def main():
     creds = None
@@ -49,7 +57,55 @@ def main():
     with open('data.json', 'w', encoding='utf-8') as f:
         json.dump(extracted_rows, f, ensure_ascii=False, indent=2)
 
+    fix_dates_in_file("data.json")
+    addTOcalendaar(creds)
 
+
+def addTOcalendaar(creds):
+
+    with open("data.json", "r", encoding="utf-8") as f:
+        data = json.load(f)
+
+    # Авторизація в Google Calendar API
+    service = build('calendar', 'v3', credentials=creds)
+
+
+    # Додаємо події
+    for task in data:
+        title, role, date = task
+        letter = role_map.get(role, "?")
+        event = {
+            "summary": f"{letter}.Action {title}",  # Назва події
+            "start": {"date": date},  # початок події (весь день)
+            "end": {"date": date},  # кінець події (той самий день)
+        }
+
+        created_event = service.events().insert(calendarId=CALENDAR_ID, body=event).execute()
+        print(f"✅ Додано подію: {created_event['summary']} на {date}")
+
+
+
+def fix_dates_in_file(filename: str):
+    """Нормалізує всі дати у файлі JSON до формату YYYY-MM-DD"""
+    formats = ["%m/%d/%Y", "%Y-%m-%d", "%d/%m/%Y", "%m/%d/%y"]
+
+    def normalize_date(date_str: str) -> str:
+        for fmt in formats:
+            try:
+                return datetime.strptime(date_str.strip(), fmt).strftime("%Y-%m-%d")
+            except ValueError:
+                continue
+        return date_str  # якщо формат невідомий — залишаємо як є
+
+    with open(filename, "r", encoding="utf-8") as f:
+        data = json.load(f)
+
+    for row in data:
+        if len(row) >= 3:
+            row[2] = normalize_date(row[2])
+
+    with open(filename, "w", encoding="utf-8") as f:
+        json.dump(data, f, ensure_ascii=False, indent=2)
 
 if __name__ == '__main__':
     main()

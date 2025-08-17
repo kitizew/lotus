@@ -9,6 +9,7 @@ from googleapiclient.discovery import build
 # Доступ тільки на зміну календаря
 SCOPES = ['https://www.googleapis.com/auth/calendar']
 
+
 def main():
     creds = None
     # Перевіряємо чи вже є збережені токени
